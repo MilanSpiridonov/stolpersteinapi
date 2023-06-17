@@ -111,6 +111,53 @@ app.get('/cities/:city/locations', (req: Request, res: Response) => {
             res.sendStatus(500);
         });
 });
+app.get('/search', (req: Request, res: Response) => {
+    try {
+        const query = req.query.query;
+        if (!query || query === '') {
+            res.status(400).json({ error: 'Invalid query' });
+            return;
+        }
+
+        const lang = req.query.lang && ['en', 'fr', 'nl'].includes(req.query.lang!.toString()) ? req.query.lang?.toString() : 'nl';
+
+        axios.get(`https://api.struikelstenengids.nl/v2/search?query=${query}&lang=${lang}`)
+            .then(result => {
+                const results = result.data.data;
+                let count: number = 0;
+                const newLocs: any[] = [];
+                results.locations.map((item: any) => {
+                    if (count < 10) {
+                        newLocs.push(item);
+                        count++;
+                    }
+                });
+                count = 0;
+                const newStones: any[] = [];
+                results.stones.map((item: any) => {
+                    if (count < 10) {
+                        newStones.push(item);
+                        count++;
+                    }
+                });
+
+                const resp = {
+                    locations: results.locations.length <= 10 ? results.locations : newLocs,
+                    stones: results.stones.length <= 10 ? results.stones : newStones,
+                }
+
+                res.type('json').send(JSON.stringify(resp));
+            })
+            .catch(error => {
+                console.error(error);
+                res.sendStatus(500);
+            });
+    } catch (error) {
+        console.error(error);
+        res.sendStatus(500);
+    }
+});
+
 app.get('/cities/:city/locations/:address', (req: Request, res: Response) => {
     const city = req.params.city;
     const location = req.params.address;
