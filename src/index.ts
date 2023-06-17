@@ -126,13 +126,8 @@ app.get('/search', (req: Request, res: Response) => {
                 const results = result.data.data;
                 let count: number = 0;
                 const newLocs: any[] = [];
-                results.locations.map((item: any) => {
-                    if (count < 10) {
-                        newLocs.push(item);
-                        count++;
-                    }
-                });
-                count = 0;
+                const promises: Promise<any>[] = [];
+
                 const newStones: any[] = [];
                 results.stones.map((item: any) => {
                     if (count < 10) {
@@ -141,12 +136,25 @@ app.get('/search', (req: Request, res: Response) => {
                     }
                 });
 
-                const resp = {
-                    locations: results.locations.length <= 10 ? results.locations : newLocs,
-                    stones: results.stones.length <= 10 ? results.stones : newStones,
-                }
+                count = 0;
 
-                res.type('json').send(JSON.stringify(resp));
+                results.locations.map((item: any) => {
+                    const q = `https://api.struikelstenengids.nl/v2/cities/${item.city.id}/locations/${item.id}?lang=${lang}`;
+
+                    if (count < 10) promises.push(axios.get(q))
+
+                    Promise.all(promises).then(results =>
+                        results.map(loc => {
+                            const data = loc.data.data;
+                            newLocs.push(data);
+                        })).then(() => {
+                            const resp = {
+                                locations: results.locations.length <= 10 ? results.locations : newLocs,
+                                stones: results.stones.length <= 10 ? results.stones : newStones,
+                            }
+                            res.type('json').send(JSON.stringify(resp));
+                        });
+                });
             })
             .catch(error => {
                 console.error(error);
